@@ -1,9 +1,11 @@
 import type { MetadataRoute } from "next";
 import { supabase } from "@/lib/supabase";
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  "https://kollaam-buy-estore.vercel.app";
+const siteUrl = "https://kollaam-buy-estore.vercel.app";
+
+function validSlug(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [{ data: categories }, { data: products }] = await Promise.all([
@@ -13,7 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const now = new Date();
 
-  const staticPages: MetadataRoute.Sitemap = [
+  const pages: MetadataRoute.Sitemap = [
     {
       url: siteUrl,
       lastModified: now,
@@ -28,23 +30,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  const categoryPages: MetadataRoute.Sitemap = (categories || [])
-    .filter((category) => category.slug)
-    .map((category) => ({
-      url: `${siteUrl}/category/${category.slug}`,
-      lastModified: now,
-      changeFrequency: "weekly" as const,
-      priority: 0.8,
-    }));
+  if (categories) {
+    for (const category of categories) {
+      if (validSlug(category.slug)) {
+        pages.push({
+          url: `${siteUrl}/category/${category.slug}`,
+          lastModified: now,
+          changeFrequency: "weekly",
+          priority: 0.8,
+        });
+      }
+    }
+  }
 
-  const productPages: MetadataRoute.Sitemap = (products || [])
-    .filter((product) => product.slug)
-    .map((product) => ({
-      url: `${siteUrl}/product/${product.slug}`,
-      lastModified: now,
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    }));
+  if (products) {
+    for (const product of products) {
+      if (validSlug(product.slug)) {
+        pages.push({
+          url: `${siteUrl}/product/${product.slug}`,
+          lastModified: now,
+          changeFrequency: "weekly",
+          priority: 0.7,
+        });
+      }
+    }
+  }
 
-  return [...staticPages, ...categoryPages, ...productPages];
+  return pages.filter((page) => validSlug(page.url));
 }
