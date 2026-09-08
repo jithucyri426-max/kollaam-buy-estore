@@ -103,13 +103,13 @@ async function getProduct(slug: string) {
     .maybeSingle();
 
   if (slugProduct) {
-    return {
-  ...slugProduct,
-  category: Array.isArray(slugProduct.category)
-    ? slugProduct.category[0] || null
-    : slugProduct.category || null,
-} as Product;
-  }
+  return {
+    ...slugProduct,
+    category: Array.isArray(slugProduct.category)
+      ? slugProduct.category[0] || null
+      : slugProduct.category || null,
+  } as Product;
+}
 
   // If the URL contains a UUID instead of a slug, also support that.
   const isUuid =
@@ -125,7 +125,14 @@ async function getProduct(slug: string) {
       .eq("id", slug)
       .maybeSingle();
 
-    return (idProduct || null) as Product | null;
+   return idProduct
+  ? {
+      ...idProduct,
+      category: Array.isArray(idProduct.category)
+        ? idProduct.category[0] || null
+        : idProduct.category || null,
+    } as Product
+  : null;
   }
 
   return null;
