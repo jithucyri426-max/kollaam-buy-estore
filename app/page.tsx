@@ -46,6 +46,7 @@ type Product = {
   views?: number | null;
   featured?: boolean | null;
   published?: boolean | null;
+  free_delivery?: boolean | null;
   created_at: string;
 };
 
@@ -165,6 +166,12 @@ function ProductCard({
             <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-green-700 px-3 py-1 text-xs font-semibold text-white">
               <Sparkles size={12} />
               Featured
+            </span>
+          )}
+
+          {product.free_delivery && (
+            <span className="absolute bottom-3 left-3 rounded-full bg-green-700 px-3 py-1 text-xs font-bold text-white shadow-sm">
+              Free Delivery
             </span>
           )}
         </div>
