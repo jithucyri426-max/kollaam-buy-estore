@@ -1121,7 +1121,7 @@ export default function AdminPage() {
                 <div className="mt-3">
                   <ToggleCard
                     title="Free Delivery"
-                    subtitle="Free delivery across India"
+                    subtitle="Free delivery across Kerala"
                     enabled={freeDelivery}
                     onClick={() =>
                       setFreeDelivery(!freeDelivery)

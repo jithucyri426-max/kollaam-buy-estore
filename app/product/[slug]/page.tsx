@@ -384,7 +384,7 @@ export default async function ProductPage({
                   </p>
                   <p className="mt-1 text-xs font-black text-[#00765c]">
                     {product.free_delivery
-                      ? "Free Delivery Across India"
+                      ? "Free Delivery Across Kerala"
                       : "Delivery Available Across India"}
                   </p>
                 </div>

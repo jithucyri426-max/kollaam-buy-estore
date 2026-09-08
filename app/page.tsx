@@ -171,7 +171,7 @@ function ProductCard({
 
           {product.free_delivery && (
             <span className="absolute bottom-3 left-3 rounded-full bg-green-700 px-3 py-1 text-xs font-bold text-white shadow-sm">
-              Free Delivery
+              Free Delivery Across Kerala
             </span>
           )}
         </div>
