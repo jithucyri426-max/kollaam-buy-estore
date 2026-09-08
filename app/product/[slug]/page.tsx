@@ -268,6 +268,30 @@ export default async function ProductPage({
     gallery.unshift(mainImage);
   }
 
+  const productUrl = `https://kollaam-buy-estore.vercel.app/product/${product.slug || slug}`;
+  const productImage = [product.image_url, product.image_url_2, product.image_url_3]
+    .filter(Boolean) as string[];
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.description || undefined,
+    image: productImage.length > 0 ? productImage : undefined,
+    sku: product.product_code || undefined,
+    brand: {
+      "@type": "Brand",
+      name: "Kollaam Buy e-Store",
+    },
+    offers: {
+      "@type": "Offer",
+      url: productUrl,
+      priceCurrency: "INR",
+      price: product.sale_price ?? product.price,
+      availability: "https://schema.org/InStock",
+      itemCondition: "https://schema.org/NewCondition",
+    },
+  };
+
   return (
     <main
       className="min-h-screen overflow-x-hidden text-gray-900"
@@ -280,6 +304,10 @@ export default async function ProductPage({
         backgroundRepeat: "no-repeat",
       }}
     >
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
       <header className="border-b border-white/70 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex min-h-[74px] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Link href="/" className="shrink-0">
