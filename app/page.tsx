@@ -139,7 +139,6 @@ function ProductCard({
       <Link
         href={`/product/${product.slug || product.id}`}
         onClick={handleProductClick}
-        
       >
         <div className="relative aspect-square overflow-hidden bg-gray-50">
           {product.image_url ? (
@@ -179,10 +178,9 @@ function ProductCard({
         )}
 
         <Link
-  href={`/product/${product.slug || product.id}`}
-  onClick={handleProductClick}
-
->
+          href={`/product/${product.slug || product.id}`}
+          onClick={handleProductClick}
+        >
           <h3 className="line-clamp-2 min-h-[44px] text-sm font-semibold text-gray-900 transition-colors group-hover:text-green-700">
             {product.name}
           </h3>

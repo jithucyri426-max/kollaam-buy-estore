@@ -42,6 +42,7 @@ type Product = {
   published: boolean;
   created_at: string;
   updated_at: string;
+  free_delivery: boolean;
 };
 
 type ImageSlot = {
@@ -86,6 +87,7 @@ export default function AdminPage() {
 
   const [featured, setFeatured] = useState(false);
   const [published, setPublished] = useState(true);
+  const [freeDelivery, setFreeDelivery] = useState(false);
 
   const [image1, setImage1] = useState<ImageSlot>(emptyImage());
   const [image2, setImage2] = useState<ImageSlot>(emptyImage());
@@ -233,6 +235,7 @@ export default function AdminPage() {
 
     setFeatured(false);
     setPublished(true);
+    setFreeDelivery(false);
 
     setImage1(emptyImage());
     setImage2(emptyImage());
@@ -270,6 +273,7 @@ export default function AdminPage() {
 
     setFeatured(product.featured);
     setPublished(product.published);
+    setFreeDelivery(product.free_delivery ?? false);
 
     setImage1({
       file: null,
@@ -614,6 +618,7 @@ export default function AdminPage() {
           productCode.trim() || null,
         featured,
         published,
+        free_delivery: freeDelivery,
         updated_at: new Date().toISOString(),
       };
 
@@ -1111,6 +1116,17 @@ export default function AdminPage() {
                       }
                     />
                   </button>
+                </div>
+
+                <div className="mt-3">
+                  <ToggleCard
+                    title="Free Delivery"
+                    subtitle="Free delivery across India"
+                    enabled={freeDelivery}
+                    onClick={() =>
+                      setFreeDelivery(!freeDelivery)
+                    }
+                  />
                 </div>
               </div>
 

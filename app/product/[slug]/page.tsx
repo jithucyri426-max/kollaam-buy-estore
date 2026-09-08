@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, MessageCircle, ShoppingBag, Tag } from "lucide-react";
@@ -20,6 +21,7 @@ type Product = {
   views: number | null;
   featured: boolean | null;
   published: boolean | null;
+  free_delivery: boolean;
   created_at: string;
   category?: {
     name: string;
@@ -89,6 +91,7 @@ async function getProduct(slug: string) {
     views,
     featured,
     published,
+    free_delivery,
     created_at,
     category:categories(name,slug)
   `;
@@ -103,13 +106,13 @@ async function getProduct(slug: string) {
     .maybeSingle();
 
   if (slugProduct) {
-  return {
-    ...slugProduct,
-    category: Array.isArray(slugProduct.category)
-      ? slugProduct.category[0] || null
-      : slugProduct.category || null,
-  } as Product;
-}
+    return {
+      ...slugProduct,
+      category: Array.isArray(slugProduct.category)
+        ? slugProduct.category[0] || null
+        : slugProduct.category || null,
+    } as Product;
+  }
 
   // If the URL contains a UUID instead of a slug, also support that.
   const isUuid =
@@ -125,17 +128,91 @@ async function getProduct(slug: string) {
       .eq("id", slug)
       .maybeSingle();
 
-   return idProduct
-  ? {
-      ...idProduct,
-      category: Array.isArray(idProduct.category)
-        ? idProduct.category[0] || null
-        : idProduct.category || null,
-    } as Product
-  : null;
+    return idProduct
+      ? ({
+          ...idProduct,
+          category: Array.isArray(idProduct.category)
+            ? idProduct.category[0] || null
+            : idProduct.category || null,
+        } as Product)
+      : null;
   }
 
   return null;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProduct(slug);
+
+  if (!product) {
+    return {
+      title: "Product Not Found",
+      description: "This product is no longer available at Kollaam Buy e-Store.",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const categoryName = product.category?.name;
+  const seoTitle = `${product.name} | Kollaam Buy e-Store`;
+  const seoDescription = `${product.name}${
+    categoryName ? ` from ${categoryName}` : ""
+  }. Shop at Kollaam Buy e-Store with easy WhatsApp enquiry and free delivery across India.`.slice(0, 160);
+  const canonicalPath = `/product/${product.slug || slug}`;
+  const seoImage = product.image_url || product.image_url_2 || product.hero_image_url;
+
+  return {
+    title: seoTitle,
+    description: seoDescription,
+    keywords: [
+      product.name,
+      categoryName,
+      product.product_code,
+      "Kollaam Buy e-Store",
+      "online shopping India",
+      "buy online India",
+    ].filter(Boolean) as string[],
+    alternates: {
+      canonical: canonicalPath,
+    },
+    openGraph: {
+      title: seoTitle,
+      description: seoDescription,
+      type: "website",
+      siteName: "Kollaam Buy e-Store",
+      locale: "en_IN",
+      url: canonicalPath,
+      images: seoImage
+        ? [
+            {
+              url: seoImage,
+              alt: product.name,
+            },
+          ]
+        : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: seoTitle,
+      description: seoDescription,
+      images: seoImage ? [seoImage] : undefined,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+      },
+    },
+  };
 }
 
 export default async function ProductPage({
@@ -306,7 +383,9 @@ export default async function ProductPage({
                     Delivery
                   </p>
                   <p className="mt-1 text-xs font-black text-[#00765c]">
-                    Across Kerala
+                    {product.free_delivery
+                      ? "Free Delivery Across India"
+                      : "Delivery Available Across India"}
                   </p>
                 </div>
 
