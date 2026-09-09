@@ -235,6 +235,7 @@ const categoryImageMap: Record<string, string> = {
   kids: "/category-kids.png",
   "mobile-accessories": "/category-mobile-accessories.png",
   "sports-fitness": "/category-sports-fitness.png",
+  "headphones-earbuds": "/category-headphones-earbuds.png",
   watches: "/category-watches.png",
   other: "/category-other.png",
 };
@@ -242,6 +243,22 @@ const categoryImageMap: Record<string, string> = {
 function getCategoryImage(category: Category) {
   return category.image_url || categoryImageMap[category.slug] || null;
 }
+
+const categoryOrder = [
+  "electronics",
+  "fashion",
+  "home-kitchen",
+  "beauty-personal-care",
+  "kids",
+  "sports-fitness",
+  "books-stationery",
+  "bags-accessories",
+  "mobile-accessories",
+  "headphones-earbuds",
+  "gifts",
+  "watches",
+  "other",
+];
 
 function CategoryCard({ category }: { category: Category }) {
   return (
@@ -343,12 +360,6 @@ export default function HomePage() {
     });
   }, [products, search, categoryMap]);
 
-  const trendingProducts = useMemo(() => {
-    return [...products]
-      .sort((a, b) => (b.views || 0) - (a.views || 0))
-      .slice(0, 8);
-  }, [products]);
-
   const recentProducts = useMemo(() => {
     return products.slice(0, 8);
   }, [products]);
@@ -356,6 +367,32 @@ export default function HomePage() {
   const featuredProducts = useMemo(() => {
     return products.filter((product) => product.featured).slice(0, 8);
   }, [products]);
+
+  const trendingProducts = useMemo(() => {
+    return [...products]
+      .sort((a, b) => (b.views || 0) - (a.views || 0))
+      .slice(0, 8);
+  }, [products]);
+
+  const allProducts = useMemo(() => {
+    return products;
+  }, [products]);
+
+  const orderedCategories = useMemo(() => {
+    return [...categories].sort((a, b) => {
+      const aIndex = categoryOrder.indexOf(a.slug);
+      const bIndex = categoryOrder.indexOf(b.slug);
+
+      if (aIndex === -1 && bIndex === -1) {
+        return a.name.localeCompare(b.name);
+      }
+
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+
+      return aIndex - bIndex;
+    });
+  }, [categories]);
 
   /*
    * Hero product:
@@ -760,8 +797,8 @@ export default function HomePage() {
                 </Link>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 lg:gap-5">
-                {categories.slice(0, 12).map((category) => (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 lg:gap-5">
+                {orderedCategories.map((category) => (
                   <CategoryCard
                     key={category.id}
                     category={category}
@@ -804,38 +841,39 @@ export default function HomePage() {
             </section>
           )}
 
-          {/* TRENDING */}
+          {/* TRENDING PRODUCTS */}
           {trendingProducts.length > 0 && (
-            <section id="categories" className="mx-auto max-w-[1400px] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-              <div className="mb-7 flex items-end justify-between">
-                <div>
-                  <p className="text-sm font-bold uppercase tracking-wider text-orange-600">
-                    Popular Now
-                  </p>
+            <section className="border-t border-white/50 bg-white/20 py-12 sm:py-16 backdrop-blur-[1px]">
+              <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+                <div className="mb-7 flex items-end justify-between">
+                  <div>
+                    <p className="text-sm font-bold uppercase tracking-wider text-orange-600">
+                      Popular Now
+                    </p>
+                    <h2 className="mt-1 text-2xl font-black sm:text-3xl">
+                      Trending Products
+                    </h2>
+                  </div>
 
-                  <h2 className="mt-1 text-2xl font-black sm:text-3xl">
-                    Trending Products
-                  </h2>
+                  <div className="hidden items-center gap-2 rounded-full bg-orange-50 px-4 py-2 text-xs font-bold text-orange-700 sm:flex">
+                    <Eye size={14} />
+                    Based on views
+                  </div>
                 </div>
 
-                <div className="hidden items-center gap-2 rounded-full bg-orange-50 px-4 py-2 text-xs font-bold text-orange-700 sm:flex">
-                  <Eye size={15} />
-                  Based on product views
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+                  {trendingProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      categoryName={
+                        product.category_id
+                          ? categoryMap[product.category_id]
+                          : undefined
+                      }
+                    />
+                  ))}
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-                {trendingProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    categoryName={
-                      product.category_id
-                        ? categoryMap[product.category_id]
-                        : undefined
-                    }
-                  />
-                ))}
               </div>
             </section>
           )}
@@ -906,6 +944,59 @@ export default function HomePage() {
                       }
                     />
                   ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ALL PRODUCTS */}
+          {allProducts.length > 0 && (
+            <section
+              id="all-products"
+              className="border-t border-white/50 bg-white/20 py-12 sm:py-16 backdrop-blur-[1px]"
+            >
+              <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+                <div className="mb-7 flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold uppercase tracking-wider text-orange-600">
+                      Browse Everything
+                    </p>
+                    <h2 className="mt-1 text-2xl font-black sm:text-3xl">
+                      All Products
+                    </h2>
+                  </div>
+
+                  <Link
+                    href="/products"
+                    className="flex shrink-0 items-center gap-1 text-sm font-bold text-green-700 hover:text-green-900"
+                  >
+                    View More
+                    <ChevronRight size={17} />
+                  </Link>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+                  {allProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      categoryName={
+                        product.category_id
+                          ? categoryMap[product.category_id]
+                          : undefined
+                      }
+                    />
+                  ))}
+                </div>
+
+                <div className="mt-8 flex justify-center">
+                  <Link
+                    href="/products"
+                    className="inline-flex items-center gap-2 rounded-xl bg-green-700 px-7 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-green-800"
+                  >
+                    View All Products
+                    <ArrowRight size={17} />
+                  </Link>
                 </div>
               </div>
             </section>
