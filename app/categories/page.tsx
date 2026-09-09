@@ -32,6 +32,7 @@ const categoryImageMap: Record<string, string> = {
   "sports-fitness": "/category-sports-fitness.png",
   watches: "/category-watches.png",
   other: "/category-other.png",
+  "headphones-earbuds": "/category-headphones-earbuds.png",
 };
 
 function getCategoryImage(category: Category) {
@@ -55,9 +56,7 @@ export default function CategoriesPage() {
       .select("*")
       .order("name", { ascending: true });
 
-    if (data) {
-      setCategories(data);
-    }
+    
 
     setLoading(false);
   }
