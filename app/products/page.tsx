@@ -96,10 +96,7 @@ function ProductCard({ product, categoryName }: { product: Product; categoryName
             <span className="text-sm text-gray-400 line-through">{formatPrice(product.price)}</span>
           )}
         </div>
-        <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
-          <Eye size={13} />
-          {product.views || 0} views
-        </div>
+        
         <a href={getWhatsAppUrl(product)} target="_blank" rel="noopener noreferrer"
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 px-4 py-3 text-sm font-bold text-white hover:bg-green-800">
           <MessageCircle size={17} />
