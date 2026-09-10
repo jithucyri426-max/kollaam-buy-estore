@@ -147,7 +147,7 @@ function ProductCard({
               src={product.image_url}
               alt={product.name}
               fill
-              className="object-contain p-5 transition-transform duration-500 group-hover:scale-105"
+              className="object-contain p-3 sm:p-5 transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
             />
           ) : (
@@ -157,20 +157,20 @@ function ProductCard({
           )}
 
           {discount > 0 && (
-            <span className="absolute left-3 top-3 rounded-full bg-orange-500 px-3 py-1 text-xs font-bold text-white">
+            <span className="absolute left-2 top-2 rounded-full bg-orange-500 px-2.5 py-1 text-[11px] font-bold leading-4 text-white sm:left-3 sm:top-3 sm:px-3 sm:text-xs sm:leading-normal">
               {discount}% OFF
             </span>
           )}
 
           {product.featured && (
-            <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-green-700 px-3 py-1 text-xs font-semibold text-white">
+            <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-green-700 px-2.5 py-1 text-[11px] font-semibold leading-4 text-white sm:right-3 sm:top-3 sm:px-3 sm:text-xs sm:leading-normal">
               <Sparkles size={12} />
               Featured
             </span>
           )}
 
           {product.free_delivery && (
-            <span className="absolute bottom-3 left-3 rounded-full bg-green-700 px-3 py-1 text-xs font-bold text-white shadow-sm">
+            <span className="absolute bottom-2 left-2 right-2 rounded-xl bg-green-700 px-2 py-1.5 text-center text-[11px] font-bold leading-4 text-white shadow-sm sm:bottom-3 sm:left-3 sm:right-auto sm:rounded-full sm:px-3 sm:py-1 sm:text-xs sm:leading-normal">
               Free Delivery Across Kerala
             </span>
           )}
@@ -179,7 +179,7 @@ function ProductCard({
 
       <div className="p-4">
         {categoryName && (
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-green-700">
+          <p className="mb-1 h-8 line-clamp-2 text-xs font-medium uppercase leading-4 tracking-wide text-green-700 sm:h-auto">
             {categoryName}
           </p>
         )}
@@ -214,7 +214,7 @@ function ProductCard({
           href={getWhatsAppUrl(product)}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-green-800"
+          className="mt-4 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-green-700 px-3 py-3 text-sm font-bold text-white whitespace-nowrap transition hover:bg-green-800 sm:px-4"
         >
           <MessageCircle size={17} />
           Buy / Enquire
@@ -797,7 +797,7 @@ export default function HomePage() {
                 </Link>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 lg:gap-5">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 lg:gap-5">
                 {orderedCategories.map((category) => (
                   <CategoryCard
                     key={category.id}
