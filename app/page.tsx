@@ -205,11 +205,6 @@ function ProductCard({
           )}
         </div>
 
-        <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
-          <Eye size={13} />
-          {product.views || 0} views
-        </div>
-
         <a
           href={getWhatsAppUrl(product)}
           target="_blank"
