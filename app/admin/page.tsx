@@ -879,6 +879,13 @@ export default function AdminPage() {
               </span>
             </button>
 
+            <a
+              href="/admin/analytics"
+              className="flex h-10 items-center gap-2 rounded-xl border border-[#008b5a]/20 bg-green-50 px-3 text-sm font-bold text-[#008b5a] hover:bg-green-100"
+            >
+              Analytics
+            </a>
+
             <button
               onClick={logout}
               className="flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-3 text-sm font-bold text-white hover:bg-slate-800"
