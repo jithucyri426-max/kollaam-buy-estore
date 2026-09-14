@@ -658,7 +658,6 @@ export default function AnalyticsPage() {
             className="mx-auto animate-spin text-green-700"
             size={34}
           />
-
           <p className="mt-4 text-sm font-bold text-gray-600">
             Checking administrator access...
           </p>
@@ -677,22 +676,18 @@ export default function AnalyticsPage() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-orange-50 text-orange-600">
             <BarChart3 size={30} />
           </div>
-
           <h1 className="mt-5 text-2xl font-black text-gray-900">
             Admin Access Required
           </h1>
-
           <p className="mt-2 text-sm leading-6 text-gray-500">
             Visitor analytics is available only
             to your administrator account.
           </p>
-
           {authError && (
             <div className="mt-5 rounded-xl bg-red-50 p-4 text-left text-xs leading-5 text-red-700">
               {authError}
             </div>
           )}
-
           <Link
             href="/admin"
             className="mt-6 inline-flex rounded-xl bg-green-700 px-6 py-3 text-sm font-bold text-white transition hover:bg-green-800"
@@ -715,17 +710,31 @@ export default function AnalyticsPage() {
             <p className="text-xs font-bold uppercase tracking-wider text-orange-600">
               Private Admin Area
             </p>
-
             <h1 className="text-2xl font-black text-gray-900 sm:text-3xl">
               Visitor Analytics
             </h1>
-
             <p className="mt-1 text-xs text-gray-400">
               Understand how visitors browse your store
             </p>
           </div>
 
           <div className="flex items-center gap-2">
+            <Link
+              href="/admin/analytics/devices"
+              className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 md:inline-flex"
+            >
+              <Monitor size={17} />
+              Devices
+            </Link>
+
+            <Link
+              href="/admin/analytics/customers"
+              className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 md:inline-flex"
+            >
+              <Users size={17} />
+              Customers
+            </Link>
+
             <button
               type="button"
               onClick={() =>
@@ -768,7 +777,6 @@ export default function AnalyticsPage() {
             <p className="text-sm font-bold text-gray-900">
               Visitor activity
             </p>
-
             <p className="text-xs text-gray-500">
               Showing the last{" "}
               {rangeDays === 1
@@ -809,7 +817,6 @@ export default function AnalyticsPage() {
                 size={34}
                 className="mx-auto animate-spin text-green-700"
               />
-
               <p className="mt-4 text-sm font-bold text-gray-500">
                 Loading visitor analytics...
               </p>
@@ -829,7 +836,6 @@ export default function AnalyticsPage() {
                 }
                 description="Anonymous sessions"
               />
-
               <StatCard
                 title="Page Views"
                 value={
@@ -838,7 +844,6 @@ export default function AnalyticsPage() {
                 icon={<Eye size={22} />}
                 description="Recorded visits"
               />
-
               <StatCard
                 title="Active Now"
                 value={
@@ -849,7 +854,6 @@ export default function AnalyticsPage() {
                 }
                 description="Seen in last 5 minutes"
               />
-
               <StatCard
                 title="Product Views"
                 value={productRanking.reduce(
@@ -869,12 +873,10 @@ export default function AnalyticsPage() {
               <div className="rounded-2xl bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-gray-500">
                   <Smartphone size={18} />
-
                   <span className="text-xs font-bold uppercase">
                     Mobile
                   </span>
                 </div>
-
                 <p className="mt-2 text-2xl font-black">
                   {mobileVisitors}
                 </p>
@@ -883,12 +885,10 @@ export default function AnalyticsPage() {
               <div className="rounded-2xl bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-gray-500">
                   <Monitor size={18} />
-
                   <span className="text-xs font-bold uppercase">
                     Desktop
                   </span>
                 </div>
-
                 <p className="mt-2 text-2xl font-black">
                   {desktopVisitors}
                 </p>
@@ -897,12 +897,10 @@ export default function AnalyticsPage() {
               <div className="rounded-2xl bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-gray-500">
                   <Tablet size={18} />
-
                   <span className="text-xs font-bold uppercase">
                     Tablet
                   </span>
                 </div>
-
                 <p className="mt-2 text-2xl font-black">
                   {tabletVisitors}
                 </p>
@@ -915,22 +913,18 @@ export default function AnalyticsPage() {
                 title="Most Visited Pages"
                 items={pageRanking}
               />
-
               <RankingList
                 title="Most Viewed Products"
                 items={productRanking}
               />
-
               <RankingList
                 title="Traffic Sources"
                 items={sourceRanking}
               />
-
               <RankingList
                 title="Browsers"
                 items={browserRanking}
               />
-
               <RankingList
                 title="Devices"
                 items={deviceRanking}
@@ -945,13 +939,11 @@ export default function AnalyticsPage() {
                     <h2 className="text-xl font-black">
                       Visitor Sessions
                     </h2>
-
                     <p className="mt-1 text-sm text-gray-500">
                       Click any visitor to inspect
                       their complete browsing journey.
                     </p>
                   </div>
-
                   <span className="w-fit rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">
                     {visitorSessions.length} sessions
                   </span>
@@ -965,11 +957,9 @@ export default function AnalyticsPage() {
                     size={45}
                     className="mx-auto text-gray-300"
                   />
-
                   <p className="mt-4 font-bold text-gray-700">
                     No visitor data yet
                   </p>
-
                   <p className="mt-1 text-sm text-gray-400">
                     Visitors will appear here as
                     they browse your store.
@@ -982,7 +972,6 @@ export default function AnalyticsPage() {
                       const isSelected =
                         selectedVisitor ===
                         visitor.sessionId;
-
                       return (
                         <div
                           key={
@@ -1006,7 +995,6 @@ export default function AnalyticsPage() {
                                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-50 text-sm font-black text-green-700">
                                   {index + 1}
                                 </div>
-
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-black text-gray-900">
                                     Visitor{" "}
@@ -1015,43 +1003,26 @@ export default function AnalyticsPage() {
                                       8
                                     )}
                                   </p>
-
                                   <p className="mt-1 text-xs text-gray-400">
-                                    {
-                                      visitor.events
-                                        .length
-                                    }{" "}
-                                    page
-                                    {visitor
-                                      .events
-                                      .length ===
-                                    1
+                                    {visitor.events.length} page
+                                    {visitor.events.length === 1
                                       ? ""
                                       : "s"}{" "}
                                     visited
                                   </p>
-
                                   <div className="mt-2 flex flex-wrap gap-2">
                                     <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
                                       <DeviceIcon
                                         device={
                                           visitor.device
                                         }
-                                        size={
-                                          13
-                                        }
+                                        size={13}
                                       />
-                                      {
-                                        visitor.device
-                                      }
+                                      {visitor.device}
                                     </span>
-
                                     <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                                      {
-                                        visitor.browser
-                                      }
+                                      {visitor.browser}
                                     </span>
-
                                     <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
                                       {getSource(
                                         visitor.referrer
@@ -1066,31 +1037,26 @@ export default function AnalyticsPage() {
                                   <p className="text-gray-400">
                                     First Seen
                                   </p>
-
                                   <p className="mt-1 font-bold text-gray-700">
                                     {formatDate(
                                       visitor.firstSeen
                                     )}
                                   </p>
                                 </div>
-
                                 <div>
                                   <p className="text-gray-400">
                                     Last Seen
                                   </p>
-
                                   <p className="mt-1 font-bold text-gray-700">
                                     {formatDate(
                                       visitor.lastSeen
                                     )}
                                   </p>
                                 </div>
-
                                 <div>
                                   <p className="text-gray-400">
                                     Session
                                   </p>
-
                                   <p className="mt-1 font-bold text-gray-700">
                                     {formatDuration(
                                       visitor.firstSeen,
@@ -1109,53 +1075,31 @@ export default function AnalyticsPage() {
                                 <span className="text-sm font-black text-gray-800">
                                   Visitor Journey
                                 </span>
-
                                 {visitor.operatingSystem && (
                                   <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
-                                    {
-                                      visitor.operatingSystem
-                                    }
+                                    {visitor.operatingSystem}
                                   </span>
                                 )}
-
                                 {visitor.events[0]
                                   ?.language && (
                                   <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
-                                    {
-                                      visitor
-                                        .events[0]
-                                        .language
-                                    }
+                                    {visitor.events[0].language}
                                   </span>
                                 )}
-
                                 {visitor.events[0]
                                   ?.timezone && (
                                   <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
-                                    {
-                                      visitor
-                                        .events[0]
-                                        .timezone
-                                    }
+                                    {visitor.events[0].timezone}
                                   </span>
                                 )}
-
                                 {visitor.events[0]
                                   ?.screen_width &&
                                   visitor.events[0]
                                     ?.screen_height && (
                                     <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
-                                      {
-                                        visitor
-                                          .events[0]
-                                          .screen_width
-                                      }
+                                      {visitor.events[0].screen_width}
                                       ×
-                                      {
-                                        visitor
-                                          .events[0]
-                                          .screen_height
-                                      }
+                                      {visitor.events[0].screen_height}
                                     </span>
                                   )}
                               </div>
@@ -1178,61 +1122,42 @@ export default function AnalyticsPage() {
                                             event.created_at
                                           )}
                                         </span>
-
                                         <span className="mt-1 text-[10px] text-gray-300">
-                                          #
-                                          {eventIndex +
-                                            1}
+                                          #{eventIndex + 1}
                                         </span>
                                       </div>
-
                                       <div className="relative flex-1 rounded-xl border border-gray-200 bg-white p-3">
                                         <div className="absolute -left-[7px] top-3 h-3 w-3 rotate-45 border-b border-l border-gray-200 bg-white" />
-
                                         <p className="relative break-all text-sm font-bold text-gray-800">
                                           {event.path}
                                         </p>
-
                                         {event.page_title && (
                                           <p className="mt-1 truncate text-xs text-gray-400">
-                                            {
-                                              event.page_title
-                                            }
+                                            {event.page_title}
                                           </p>
                                         )}
-
                                         {event.referrer && (
                                           <p className="mt-1 break-all text-xs text-gray-400">
                                             From:{" "}
-                                            {
-                                              event.referrer
-                                            }
+                                            {event.referrer}
                                           </p>
                                         )}
-
                                         <div className="mt-2 flex flex-wrap gap-2">
                                           {event.viewport_width &&
                                             event.viewport_height && (
                                               <span className="rounded-full bg-gray-50 px-2 py-1 text-[10px] text-gray-400">
                                                 Viewport{" "}
-                                                {
-                                                  event.viewport_width
-                                                }
+                                                {event.viewport_width}
                                                 ×
-                                                {
-                                                  event.viewport_height
-                                                }
+                                                {event.viewport_height}
                                               </span>
                                             )}
-
                                           {event.connection_type &&
                                             event.connection_type !==
                                               "unknown" && (
                                               <span className="rounded-full bg-gray-50 px-2 py-1 text-[10px] text-gray-400">
                                                 Connection:{" "}
-                                                {
-                                                  event.connection_type
-                                                }
+                                                {event.connection_type}
                                               </span>
                                             )}
                                         </div>
@@ -1260,12 +1185,10 @@ export default function AnalyticsPage() {
                 <ArrowLeft size={17} />
                 Back to Admin
               </Link>
-
               <div className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-medium text-gray-500 shadow-sm">
                 <Clock3 size={17} />
                 Refresh manually when needed
               </div>
-
               <div className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-medium text-gray-500 shadow-sm">
                 <MessageCircle size={17} />
                 WhatsApp tracking coming next
