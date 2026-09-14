@@ -35,6 +35,15 @@ type PageView = {
   language: string | null;
   timezone: string | null;
   connection_type: string | null;
+  device_model: string | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  location_accuracy_meters: number | null;
+  location_permission: boolean | null;
+  location_consent_at: string | null;
   created_at: string;
 };
 
@@ -44,8 +53,11 @@ type VisitorSession = {
   firstSeen: string;
   lastSeen: string;
   device: string;
+  deviceModel: string;
   browser: string;
   operatingSystem: string;
+  location: string;
+  locationPermission: boolean;
   referrer: string | null;
 };
 
@@ -244,17 +256,6 @@ export default function AnalyticsPage() {
   const [selectedVisitor, setSelectedVisitor] =
     useState<string | null>(null);
 
-  /*
-   * AUTHENTICATION
-   *
-   * We first get the authenticated user.
-   * Then we check the existing is_admin() RPC.
-   *
-   * IMPORTANT:
-   * We do NOT sign the user out when the RPC fails.
-   * A temporary RPC/network error should never destroy
-   * an otherwise valid admin session.
-   */
   async function checkAdmin() {
     setCheckingAuth(true);
     setAuthError("");
@@ -270,7 +271,6 @@ export default function AnalyticsPage() {
           "Analytics authentication error:",
           userError.message
         );
-
         setAuthorized(false);
         setAuthError(
           "Unable to verify your admin session. Please return to Admin and try again."
@@ -281,9 +281,7 @@ export default function AnalyticsPage() {
 
       if (!user) {
         setAuthorized(false);
-        setAuthError(
-          "No active admin session was found."
-        );
+        setAuthError("No active admin session was found.");
         setCheckingAuth(false);
         return;
       }
@@ -298,7 +296,6 @@ export default function AnalyticsPage() {
           "Admin authorization error:",
           adminError.message
         );
-
         setAuthorized(false);
         setAuthError(
           "Your session exists, but admin authorization could not be verified."
@@ -307,10 +304,6 @@ export default function AnalyticsPage() {
         return;
       }
 
-      /*
-       * Supabase normally returns boolean true here.
-       * String "true" is also accepted defensively.
-       */
       const isAdmin =
         adminResult === true ||
         adminResult === "true";
@@ -330,7 +323,6 @@ export default function AnalyticsPage() {
         "Unexpected analytics authentication error:",
         error
       );
-
       setAuthorized(false);
       setAuthError(
         "Something went wrong while checking administrator access."
@@ -349,24 +341,13 @@ export default function AnalyticsPage() {
 
     try {
       const startDate = new Date();
+      startDate.setDate(startDate.getDate() - rangeDays);
 
-      startDate.setDate(
-        startDate.getDate() - rangeDays
-      );
-
-      const {
-        data,
-        error,
-      } = await supabase
+      const { data, error } = await supabase
         .from("visitor_pageviews")
         .select("*")
-        .gte(
-          "created_at",
-          startDate.toISOString()
-        )
-        .order("created_at", {
-          ascending: true,
-        })
+        .gte("created_at", startDate.toISOString())
+        .order("created_at", { ascending: true })
         .limit(10000);
 
       if (error) {
@@ -374,13 +355,10 @@ export default function AnalyticsPage() {
           "Analytics loading error:",
           error.message
         );
-
         return;
       }
 
-      setPageViews(
-        (data || []) as PageView[]
-      );
+      setPageViews((data || []) as PageView[]);
     } catch (error) {
       console.error(
         "Unexpected analytics loading error:",
@@ -404,23 +382,14 @@ export default function AnalyticsPage() {
 
   async function logout() {
     await supabase.auth.signOut();
-
     window.location.href = "/admin";
   }
 
-  /*
-   * GROUP EVENTS INTO VISITOR SESSIONS
-   */
   const visitorSessions = useMemo(() => {
-    const map = new Map<
-      string,
-      VisitorSession
-    >();
+    const map = new Map<string, VisitorSession>();
 
     for (const event of pageViews) {
-      const existing = map.get(
-        event.session_id
-      );
+      const existing = map.get(event.session_id);
 
       if (!existing) {
         map.set(event.session_id, {
@@ -428,228 +397,145 @@ export default function AnalyticsPage() {
           events: [event],
           firstSeen: event.created_at,
           lastSeen: event.created_at,
-          device:
-            event.device_type || "Unknown",
-          browser:
-            event.browser || "Unknown",
+          device: event.device_type || "Unknown",
+          deviceModel:
+            event.device_model || "Model unavailable",
+          browser: event.browser || "Unknown",
           operatingSystem:
-            event.operating_system ||
-            "Unknown",
+            event.operating_system || "Unknown",
+          location:
+            [event.city, event.region, event.country]
+              .filter(Boolean)
+              .join(", ") || "Location unavailable",
+          locationPermission:
+            event.location_permission === true,
           referrer: event.referrer,
         });
       } else {
         existing.events.push(event);
 
         if (
-          new Date(
-            event.created_at
-          ).getTime() >
-          new Date(
-            existing.lastSeen
-          ).getTime()
+          new Date(event.created_at).getTime() >
+          new Date(existing.lastSeen).getTime()
         ) {
-          existing.lastSeen =
-            event.created_at;
+          existing.lastSeen = event.created_at;
+        }
+
+        if (
+          existing.deviceModel === "Model unavailable" &&
+          event.device_model
+        ) {
+          existing.deviceModel = event.device_model;
+        }
+
+        if (
+          existing.location === "Location unavailable" &&
+          (event.city || event.region || event.country)
+        ) {
+          existing.location = [
+            event.city,
+            event.region,
+            event.country,
+          ]
+            .filter(Boolean)
+            .join(", ");
+        }
+
+        if (event.location_permission === true) {
+          existing.locationPermission = true;
         }
       }
     }
 
-    return Array.from(
-      map.values()
-    ).sort(
+    return Array.from(map.values()).sort(
       (a, b) =>
         new Date(b.lastSeen).getTime() -
         new Date(a.lastSeen).getTime()
     );
   }, [pageViews]);
 
-  /*
-   * MOST VISITED PAGES
-   */
   const pageRanking = useMemo(() => {
-    const counts: Record<
-      string,
-      number
-    > = {};
-
+    const counts: Record<string, number> = {};
     pageViews.forEach((view) => {
-      counts[view.path] =
-        (counts[view.path] || 0) + 1;
+      counts[view.path] = (counts[view.path] || 0) + 1;
     });
-
     return Object.entries(counts)
-      .map(([name, count]) => ({
-        name,
-        count,
-      }))
-      .sort(
-        (a, b) => b.count - a.count
-      );
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
   }, [pageViews]);
 
-  /*
-   * MOST VIEWED PRODUCTS
-   */
   const productRanking = useMemo(() => {
-    const counts: Record<
-      string,
-      number
-    > = {};
-
+    const counts: Record<string, number> = {};
     pageViews.forEach((view) => {
-      if (
-        view.path.startsWith(
-          "/product/"
-        )
-      ) {
-        counts[view.path] =
-          (counts[view.path] || 0) + 1;
+      if (view.path.startsWith("/product/")) {
+        counts[view.path] = (counts[view.path] || 0) + 1;
       }
     });
-
     return Object.entries(counts)
       .map(([name, count]) => ({
-        name: name.replace(
-          "/product/",
-          ""
-        ),
+        name: name.replace("/product/", ""),
         count,
       }))
-      .sort(
-        (a, b) => b.count - a.count
-      );
+      .sort((a, b) => b.count - a.count);
   }, [pageViews]);
 
-  /*
-   * TRAFFIC SOURCES
-   */
   const sourceRanking = useMemo(() => {
-    const counts: Record<
-      string,
-      number
-    > = {};
-
-    visitorSessions.forEach(
-      (visitor) => {
-        const source = getSource(
-          visitor.referrer
-        );
-
-        counts[source] =
-          (counts[source] || 0) + 1;
-      }
-    );
-
+    const counts: Record<string, number> = {};
+    visitorSessions.forEach((visitor) => {
+      const source = getSource(visitor.referrer);
+      counts[source] = (counts[source] || 0) + 1;
+    });
     return Object.entries(counts)
-      .map(([name, count]) => ({
-        name,
-        count,
-      }))
-      .sort(
-        (a, b) => b.count - a.count
-      );
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
   }, [visitorSessions]);
 
-  /*
-   * DEVICES
-   */
   const deviceRanking = useMemo(() => {
-    const counts: Record<
-      string,
-      number
-    > = {};
-
-    visitorSessions.forEach(
-      (visitor) => {
-        counts[visitor.device] =
-          (counts[visitor.device] ||
-            0) + 1;
-      }
-    );
-
+    const counts: Record<string, number> = {};
+    visitorSessions.forEach((visitor) => {
+      counts[visitor.device] = (counts[visitor.device] || 0) + 1;
+    });
     return Object.entries(counts)
-      .map(([name, count]) => ({
-        name,
-        count,
-      }))
-      .sort(
-        (a, b) => b.count - a.count
-      );
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
   }, [visitorSessions]);
 
-  /*
-   * BROWSERS
-   */
   const browserRanking = useMemo(() => {
-    const counts: Record<
-      string,
-      number
-    > = {};
-
-    visitorSessions.forEach(
-      (visitor) => {
-        counts[visitor.browser] =
-          (counts[visitor.browser] ||
-            0) + 1;
-      }
-    );
-
+    const counts: Record<string, number> = {};
+    visitorSessions.forEach((visitor) => {
+      counts[visitor.browser] = (counts[visitor.browser] || 0) + 1;
+    });
     return Object.entries(counts)
-      .map(([name, count]) => ({
-        name,
-        count,
-      }))
-      .sort(
-        (a, b) => b.count - a.count
-      );
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
   }, [visitorSessions]);
 
-  /*
-   * ACTIVE VISITORS
-   */
   const activeVisitors = useMemo(() => {
-    const fiveMinutesAgo =
-      Date.now() -
-      5 * 60 * 1000;
-
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
     return visitorSessions.filter(
       (visitor) =>
-        new Date(
-          visitor.lastSeen
-        ).getTime() >= fiveMinutesAgo
+        new Date(visitor.lastSeen).getTime() >= fiveMinutesAgo
     ).length;
   }, [visitorSessions]);
 
-  const mobileVisitors =
-    visitorSessions.filter(
-      (visitor) =>
-        visitor.device === "Mobile"
-    ).length;
+  const mobileVisitors = visitorSessions.filter(
+    (visitor) => visitor.device === "Mobile"
+  ).length;
 
-  const desktopVisitors =
-    visitorSessions.filter(
-      (visitor) =>
-        visitor.device === "Desktop"
-    ).length;
+  const desktopVisitors = visitorSessions.filter(
+    (visitor) => visitor.device === "Desktop"
+  ).length;
 
-  const tabletVisitors =
-    visitorSessions.filter(
-      (visitor) =>
-        visitor.device === "Tablet"
-    ).length;
+  const tabletVisitors = visitorSessions.filter(
+    (visitor) => visitor.device === "Tablet"
+  ).length;
 
-  const selectedSession =
-    selectedVisitor
-      ? visitorSessions.find(
-          (visitor) =>
-            visitor.sessionId ===
-            selectedVisitor
-        )
-      : null;
+  const selectedSession = selectedVisitor
+    ? visitorSessions.find(
+        (visitor) => visitor.sessionId === selectedVisitor
+      )
+    : null;
 
-  /*
-   * AUTH LOADING
-   */
   if (checkingAuth) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7f1e4]">
@@ -666,9 +552,6 @@ export default function AnalyticsPage() {
     );
   }
 
-  /*
-   * NOT AUTHORIZED
-   */
   if (!authorized) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7f1e4] px-5">
@@ -680,8 +563,7 @@ export default function AnalyticsPage() {
             Admin Access Required
           </h1>
           <p className="mt-2 text-sm leading-6 text-gray-500">
-            Visitor analytics is available only
-            to your administrator account.
+            Visitor analytics is available only to your administrator account.
           </p>
           {authError && (
             <div className="mt-5 rounded-xl bg-red-50 p-4 text-left text-xs leading-5 text-red-700">
@@ -699,9 +581,6 @@ export default function AnalyticsPage() {
     );
   }
 
-  /*
-   * DASHBOARD
-   */
   return (
     <main className="min-h-screen bg-[#f7f1e4] text-gray-900">
       <header className="border-b border-gray-100 bg-white shadow-sm">
@@ -721,92 +600,67 @@ export default function AnalyticsPage() {
           <div className="flex items-center gap-2">
             <Link
               href="/admin/analytics/devices"
-              className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 md:inline-flex"
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
             >
               <Monitor size={17} />
-              Devices
+              <span className="hidden sm:inline">Devices</span>
             </Link>
-
             <Link
               href="/admin/analytics/customers"
-              className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 md:inline-flex"
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
             >
               <Users size={17} />
-              Customers
+              <span className="hidden sm:inline">Customers</span>
             </Link>
-
             <button
               type="button"
-              onClick={() =>
-                loadAnalytics(true)
-              }
+              onClick={() => loadAnalytics(true)}
               disabled={refreshing}
               className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
             >
               <RefreshCw
                 size={17}
-                className={
-                  refreshing
-                    ? "animate-spin"
-                    : ""
-                }
+                className={refreshing ? "animate-spin" : ""}
               />
-              <span className="hidden sm:inline">
-                Refresh
-              </span>
+              <span className="hidden sm:inline">Refresh</span>
             </button>
-
             <button
               type="button"
               onClick={logout}
               className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-gray-800"
             >
               <LogOut size={17} />
-              <span className="hidden sm:inline">
-                Logout
-              </span>
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
       </header>
 
       <section className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8">
-        {/* RANGE */}
         <div className="mb-7 flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-bold text-gray-900">
               Visitor activity
             </p>
             <p className="text-xs text-gray-500">
-              Showing the last{" "}
-              {rangeDays === 1
-                ? "24 hours"
-                : `${rangeDays} days`}
+              Showing the last {rangeDays === 1 ? "24 hours" : `${rangeDays} days`}
             </p>
           </div>
-
           <div className="flex flex-wrap gap-2">
-            {RANGE_OPTIONS.map(
-              (option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() =>
-                    setRangeDays(
-                      option.value
-                    )
-                  }
-                  className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
-                    rangeDays ===
-                    option.value
-                      ? "bg-green-700 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              )
-            )}
+            {RANGE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setRangeDays(option.value)}
+                className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
+                  rangeDays === option.value
+                    ? "bg-green-700 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -824,124 +678,75 @@ export default function AnalyticsPage() {
           </div>
         ) : (
           <>
-            {/* MAIN STATISTICS */}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:gap-5">
               <StatCard
                 title="Unique Visitors"
-                value={
-                  visitorSessions.length
-                }
-                icon={
-                  <Users size={22} />
-                }
+                value={visitorSessions.length}
+                icon={<Users size={22} />}
                 description="Anonymous sessions"
               />
               <StatCard
                 title="Page Views"
-                value={
-                  pageViews.length
-                }
+                value={pageViews.length}
                 icon={<Eye size={22} />}
                 description="Recorded visits"
               />
               <StatCard
                 title="Active Now"
-                value={
-                  activeVisitors
-                }
-                icon={
-                  <BarChart3 size={22} />
-                }
+                value={activeVisitors}
+                icon={<BarChart3 size={22} />}
                 description="Seen in last 5 minutes"
               />
               <StatCard
                 title="Product Views"
                 value={productRanking.reduce(
-                  (total, item) =>
-                    total + item.count,
+                  (total, item) => total + item.count,
                   0
                 )}
-                icon={
-                  <Globe size={22} />
-                }
+                icon={<Globe size={22} />}
                 description="Product page visits"
               />
             </div>
 
-            {/* DEVICE STATISTICS */}
             <div className="mt-6 grid grid-cols-3 gap-3 lg:gap-5">
               <div className="rounded-2xl bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-gray-500">
                   <Smartphone size={18} />
-                  <span className="text-xs font-bold uppercase">
-                    Mobile
-                  </span>
+                  <span className="text-xs font-bold uppercase">Mobile</span>
                 </div>
-                <p className="mt-2 text-2xl font-black">
-                  {mobileVisitors}
-                </p>
+                <p className="mt-2 text-2xl font-black">{mobileVisitors}</p>
               </div>
-
               <div className="rounded-2xl bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-gray-500">
                   <Monitor size={18} />
-                  <span className="text-xs font-bold uppercase">
-                    Desktop
-                  </span>
+                  <span className="text-xs font-bold uppercase">Desktop</span>
                 </div>
-                <p className="mt-2 text-2xl font-black">
-                  {desktopVisitors}
-                </p>
+                <p className="mt-2 text-2xl font-black">{desktopVisitors}</p>
               </div>
-
               <div className="rounded-2xl bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-gray-500">
                   <Tablet size={18} />
-                  <span className="text-xs font-bold uppercase">
-                    Tablet
-                  </span>
+                  <span className="text-xs font-bold uppercase">Tablet</span>
                 </div>
-                <p className="mt-2 text-2xl font-black">
-                  {tabletVisitors}
-                </p>
+                <p className="mt-2 text-2xl font-black">{tabletVisitors}</p>
               </div>
             </div>
 
-            {/* RANKINGS */}
             <div className="mt-6 grid gap-5 lg:grid-cols-2">
-              <RankingList
-                title="Most Visited Pages"
-                items={pageRanking}
-              />
-              <RankingList
-                title="Most Viewed Products"
-                items={productRanking}
-              />
-              <RankingList
-                title="Traffic Sources"
-                items={sourceRanking}
-              />
-              <RankingList
-                title="Browsers"
-                items={browserRanking}
-              />
-              <RankingList
-                title="Devices"
-                items={deviceRanking}
-              />
+              <RankingList title="Most Visited Pages" items={pageRanking} />
+              <RankingList title="Most Viewed Products" items={productRanking} />
+              <RankingList title="Traffic Sources" items={sourceRanking} />
+              <RankingList title="Browsers" items={browserRanking} />
+              <RankingList title="Devices" items={deviceRanking} />
             </div>
 
-            {/* VISITOR SESSIONS */}
             <section className="mt-7 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
               <div className="border-b border-gray-100 p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-xl font-black">
-                      Visitor Sessions
-                    </h2>
+                    <h2 className="text-xl font-black">Visitor Sessions</h2>
                     <p className="mt-1 text-sm text-gray-500">
-                      Click any visitor to inspect
-                      their complete browsing journey.
+                      Click any visitor to inspect their complete browsing journey.
                     </p>
                   </div>
                   <span className="w-fit rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">
@@ -950,233 +755,195 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
-              {visitorSessions.length ===
-              0 ? (
+              {visitorSessions.length === 0 ? (
                 <div className="p-12 text-center">
-                  <Users
-                    size={45}
-                    className="mx-auto text-gray-300"
-                  />
+                  <Users size={45} className="mx-auto text-gray-300" />
                   <p className="mt-4 font-bold text-gray-700">
                     No visitor data yet
                   </p>
                   <p className="mt-1 text-sm text-gray-400">
-                    Visitors will appear here as
-                    they browse your store.
+                    Visitors will appear here as they browse your store.
                   </p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {visitorSessions.map(
-                    (visitor, index) => {
-                      const isSelected =
-                        selectedVisitor ===
-                        visitor.sessionId;
-                      return (
-                        <div
-                          key={
-                            visitor.sessionId
+                  {visitorSessions.map((visitor, index) => {
+                    const isSelected =
+                      selectedVisitor === visitor.sessionId;
+
+                    return (
+                      <div key={visitor.sessionId} className="p-5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedVisitor(
+                              isSelected ? null : visitor.sessionId
+                            )
                           }
-                          className="p-5"
+                          className="w-full text-left"
                         >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSelectedVisitor(
-                                isSelected
-                                  ? null
-                                  : visitor.sessionId
-                              )
-                            }
-                            className="w-full text-left"
-                          >
-                            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                              <div className="flex min-w-0 items-start gap-4">
-                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-50 text-sm font-black text-green-700">
-                                  {index + 1}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-black text-gray-900">
-                                    Visitor{" "}
-                                    {visitor.sessionId.slice(
-                                      0,
-                                      8
-                                    )}
-                                  </p>
-                                  <p className="mt-1 text-xs text-gray-400">
-                                    {visitor.events.length} page
-                                    {visitor.events.length === 1
-                                      ? ""
-                                      : "s"}{" "}
-                                    visited
-                                  </p>
-                                  <div className="mt-2 flex flex-wrap gap-2">
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                                      <DeviceIcon
-                                        device={
-                                          visitor.device
-                                        }
-                                        size={13}
-                                      />
-                                      {visitor.device}
-                                    </span>
-                                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                                      {visitor.browser}
-                                    </span>
-                                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                                      {getSource(
-                                        visitor.referrer
-                                      )}
-                                    </span>
-                                  </div>
-                                </div>
+                          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="flex min-w-0 items-start gap-4">
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-50 text-sm font-black text-green-700">
+                                {index + 1}
                               </div>
-
-                              <div className="grid grid-cols-2 gap-4 text-xs sm:grid-cols-3">
-                                <div>
-                                  <p className="text-gray-400">
-                                    First Seen
-                                  </p>
-                                  <p className="mt-1 font-bold text-gray-700">
-                                    {formatDate(
-                                      visitor.firstSeen
-                                    )}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-400">
-                                    Last Seen
-                                  </p>
-                                  <p className="mt-1 font-bold text-gray-700">
-                                    {formatDate(
-                                      visitor.lastSeen
-                                    )}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-400">
-                                    Session
-                                  </p>
-                                  <p className="mt-1 font-bold text-gray-700">
-                                    {formatDuration(
-                                      visitor.firstSeen,
-                                      visitor.lastSeen
-                                    )}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-
-                          {/* JOURNEY */}
-                          {isSelected && (
-                            <div className="mt-5 rounded-2xl bg-gray-50 p-4">
-                              <div className="mb-4 flex flex-wrap items-center gap-2">
-                                <span className="text-sm font-black text-gray-800">
-                                  Visitor Journey
-                                </span>
-                                {visitor.operatingSystem && (
-                                  <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
-                                    {visitor.operatingSystem}
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-black text-gray-900">
+                                  Visitor {visitor.sessionId.slice(0, 8)}
+                                </p>
+                                <p className="mt-1 text-xs text-gray-400">
+                                  {visitor.events.length} page
+                                  {visitor.events.length === 1 ? "" : "s"} visited
+                                </p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                                    <DeviceIcon
+                                      device={visitor.device}
+                                      size={13}
+                                    />
+                                    {visitor.device}
                                   </span>
-                                )}
-                                {visitor.events[0]
-                                  ?.language && (
-                                  <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
-                                    {visitor.events[0].language}
+                                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                                    {visitor.browser}
                                   </span>
-                                )}
-                                {visitor.events[0]
-                                  ?.timezone && (
-                                  <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
-                                    {visitor.events[0].timezone}
-                                  </span>
-                                )}
-                                {visitor.events[0]
-                                  ?.screen_width &&
-                                  visitor.events[0]
-                                    ?.screen_height && (
-                                    <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
-                                      {visitor.events[0].screen_width}
-                                      ×
-                                      {visitor.events[0].screen_height}
+                                  {visitor.deviceModel !==
+                                    "Model unavailable" && (
+                                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                                      {visitor.deviceModel}
                                     </span>
                                   )}
-                              </div>
-
-                              <div className="space-y-3">
-                                {visitor.events.map(
-                                  (
-                                    event,
-                                    eventIndex
-                                  ) => (
-                                    <div
-                                      key={
-                                        event.id
-                                      }
-                                      className="flex gap-3"
-                                    >
-                                      <div className="flex w-16 shrink-0 flex-col items-end">
-                                        <span className="text-[11px] font-bold text-gray-400">
-                                          {formatTime(
-                                            event.created_at
-                                          )}
-                                        </span>
-                                        <span className="mt-1 text-[10px] text-gray-300">
-                                          #{eventIndex + 1}
-                                        </span>
-                                      </div>
-                                      <div className="relative flex-1 rounded-xl border border-gray-200 bg-white p-3">
-                                        <div className="absolute -left-[7px] top-3 h-3 w-3 rotate-45 border-b border-l border-gray-200 bg-white" />
-                                        <p className="relative break-all text-sm font-bold text-gray-800">
-                                          {event.path}
-                                        </p>
-                                        {event.page_title && (
-                                          <p className="mt-1 truncate text-xs text-gray-400">
-                                            {event.page_title}
-                                          </p>
-                                        )}
-                                        {event.referrer && (
-                                          <p className="mt-1 break-all text-xs text-gray-400">
-                                            From:{" "}
-                                            {event.referrer}
-                                          </p>
-                                        )}
-                                        <div className="mt-2 flex flex-wrap gap-2">
-                                          {event.viewport_width &&
-                                            event.viewport_height && (
-                                              <span className="rounded-full bg-gray-50 px-2 py-1 text-[10px] text-gray-400">
-                                                Viewport{" "}
-                                                {event.viewport_width}
-                                                ×
-                                                {event.viewport_height}
-                                              </span>
-                                            )}
-                                          {event.connection_type &&
-                                            event.connection_type !==
-                                              "unknown" && (
-                                              <span className="rounded-full bg-gray-50 px-2 py-1 text-[10px] text-gray-400">
-                                                Connection:{" "}
-                                                {event.connection_type}
-                                              </span>
-                                            )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )
-                                )}
+                                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                                    {visitor.location}
+                                  </span>
+                                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                                    {getSource(visitor.referrer)}
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                          )}
-                        </div>
-                      );
-                    }
-                  )}
+
+                            <div className="grid grid-cols-2 gap-4 text-xs sm:grid-cols-3">
+                              <div>
+                                <p className="text-gray-400">First Seen</p>
+                                <p className="mt-1 font-bold text-gray-700">
+                                  {formatDate(visitor.firstSeen)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-gray-400">Last Seen</p>
+                                <p className="mt-1 font-bold text-gray-700">
+                                  {formatDate(visitor.lastSeen)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-gray-400">Session</p>
+                                <p className="mt-1 font-bold text-gray-700">
+                                  {formatDuration(
+                                    visitor.firstSeen,
+                                    visitor.lastSeen
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+
+                        {isSelected && (
+                          <div className="mt-5 rounded-2xl bg-gray-50 p-4">
+                            <div className="mb-4 flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-black text-gray-800">
+                                Visitor Journey
+                              </span>
+                              {visitor.operatingSystem && (
+                                <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
+                                  {visitor.operatingSystem}
+                                </span>
+                              )}
+                              {visitor.deviceModel !==
+                                "Model unavailable" && (
+                                <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
+                                  {visitor.deviceModel}
+                                </span>
+                              )}
+                              <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
+                                Location: {visitor.location}
+                              </span>
+                              <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
+                                GPS permission: {visitor.locationPermission
+                                  ? "Granted"
+                                  : "Not granted"}
+                              </span>
+                              {visitor.events[0]?.language && (
+                                <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
+                                  {visitor.events[0].language}
+                                </span>
+                              )}
+                              {visitor.events[0]?.timezone && (
+                                <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
+                                  {visitor.events[0].timezone}
+                                </span>
+                              )}
+                              {visitor.events[0]?.screen_width &&
+                                visitor.events[0]?.screen_height && (
+                                  <span className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-500">
+                                    {visitor.events[0].screen_width} × {visitor.events[0].screen_height}
+                                  </span>
+                                )}
+                            </div>
+
+                            <div className="space-y-3">
+                              {visitor.events.map((event, eventIndex) => (
+                                <div key={event.id} className="flex gap-3">
+                                  <div className="flex w-16 shrink-0 flex-col items-end">
+                                    <span className="text-[11px] font-bold text-gray-400">
+                                      {formatTime(event.created_at)}
+                                    </span>
+                                    <span className="mt-1 text-[10px] text-gray-300">
+                                      #{eventIndex + 1}
+                                    </span>
+                                  </div>
+                                  <div className="relative flex-1 rounded-xl border border-gray-200 bg-white p-3">
+                                    <div className="absolute -left-[7px] top-3 h-3 w-3 rotate-45 border-b border-l border-gray-200 bg-white" />
+                                    <p className="relative break-all text-sm font-bold text-gray-800">
+                                      {event.path}
+                                    </p>
+                                    {event.page_title && (
+                                      <p className="mt-1 truncate text-xs text-gray-400">
+                                        {event.page_title}
+                                      </p>
+                                    )}
+                                    {event.referrer && (
+                                      <p className="mt-1 break-all text-xs text-gray-400">
+                                        From: {event.referrer}
+                                      </p>
+                                    )}
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      {event.viewport_width &&
+                                        event.viewport_height && (
+                                          <span className="rounded-full bg-gray-50 px-2 py-1 text-[10px] text-gray-400">
+                                            Viewport {event.viewport_width} × {event.viewport_height}
+                                          </span>
+                                        )}
+                                      {event.connection_type &&
+                                        event.connection_type !== "unknown" && (
+                                          <span className="rounded-full bg-gray-50 px-2 py-1 text-[10px] text-gray-400">
+                                            Connection: {event.connection_type}
+                                          </span>
+                                        )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>
 
-            {/* FOOTER ACTIONS */}
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
                 href="/admin"
@@ -1191,7 +958,7 @@ export default function AnalyticsPage() {
               </div>
               <div className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-medium text-gray-500 shadow-sm">
                 <MessageCircle size={17} />
-                WhatsApp tracking coming next
+                Device and consent-based location data shown when available
               </div>
             </div>
           </>
