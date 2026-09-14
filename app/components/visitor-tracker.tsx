@@ -4,39 +4,77 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-function getBrowser() {
-  const userAgent = navigator.userAgent;
+const SESSION_KEY = "kollaam_analytics_session";
+const LAST_ACTIVITY_KEY = "kollaam_analytics_last_activity";
 
-  if (/Edg\//i.test(userAgent)) return "Edge";
-  if (/OPR\//i.test(userAgent)) return "Opera";
-  if (/Chrome\//i.test(userAgent)) return "Chrome";
-  if (/Firefox\//i.test(userAgent)) return "Firefox";
-  if (/Safari\//i.test(userAgent)) return "Safari";
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+
+function getSessionId() {
+  const now = Date.now();
+
+  let sessionId = localStorage.getItem(SESSION_KEY);
+  const lastActivity = Number(
+    localStorage.getItem(LAST_ACTIVITY_KEY) || "0"
+  );
+
+  // Start a new session after 30 minutes of inactivity.
+  if (
+    !sessionId ||
+    !lastActivity ||
+    now - lastActivity > SESSION_TIMEOUT
+  ) {
+    sessionId = crypto.randomUUID();
+
+    localStorage.setItem(SESSION_KEY, sessionId);
+  }
+
+  localStorage.setItem(
+    LAST_ACTIVITY_KEY,
+    String(now)
+  );
+
+  return sessionId;
+}
+
+function getBrowser() {
+  const ua = navigator.userAgent;
+
+  if (/Edg\//i.test(ua)) return "Edge";
+  if (/OPR\//i.test(ua)) return "Opera";
+  if (/Chrome\//i.test(ua)) return "Chrome";
+  if (/Firefox\//i.test(ua)) return "Firefox";
+  if (/Safari\//i.test(ua)) return "Safari";
 
   return "Other";
 }
 
 function getOperatingSystem() {
-  const userAgent = navigator.userAgent;
+  const ua = navigator.userAgent;
 
-  if (/Windows/i.test(userAgent)) return "Windows";
-  if (/Android/i.test(userAgent)) return "Android";
-  if (/iPhone|iPad|iPod/i.test(userAgent)) return "iOS";
-  if (/Mac OS X/i.test(userAgent)) return "macOS";
-  if (/Linux/i.test(userAgent)) return "Linux";
+  if (/Windows/i.test(ua)) return "Windows";
+  if (/Android/i.test(ua)) return "Android";
+  if (/iPhone|iPad|iPod/i.test(ua)) return "iOS";
+  if (/Mac OS X/i.test(ua)) return "macOS";
+  if (/Linux/i.test(ua)) return "Linux";
 
   return "Other";
 }
 
 function getDeviceType() {
   const width = window.innerWidth;
-  const userAgent = navigator.userAgent;
+  const ua = navigator.userAgent;
 
-  if (/Tablet|iPad/i.test(userAgent) || (width >= 768 && width < 1024)) {
+  if (
+    /Tablet|iPad/i.test(ua) ||
+    (width >= 768 && width < 1024)
+  ) {
     return "Tablet";
   }
 
-  if (/Mobile|Android|iPhone/i.test(userAgent) || width < 768) {
+  if (
+    /Mobile|Android|iPhone/i.test(ua) ||
+    width < 768
+  ) {
     return "Mobile";
   }
 
@@ -44,53 +82,65 @@ function getDeviceType() {
 }
 
 function getConnectionType() {
-  const connection = (
+  const navigatorWithConnection =
     navigator as Navigator & {
       connection?: {
         effectiveType?: string;
       };
-    }
-  ).connection;
+    };
 
-  return connection?.effectiveType || "unknown";
+  return (
+    navigatorWithConnection.connection?.effectiveType ||
+    "unknown"
+  );
 }
 
-function getSessionId() {
-  const storageKey = "kollaam_visitor_session";
-
-  let sessionId = localStorage.getItem(storageKey);
-
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-    localStorage.setItem(storageKey, sessionId);
+function getReferrer() {
+  try {
+    return document.referrer || null;
+  } catch {
+    return null;
   }
-
-  return sessionId;
 }
 
 export default function VisitorTracker() {
   const pathname = usePathname();
 
-  const lastTrackedPath = useRef<string | null>(null);
+  const trackedPathRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!pathname) return;
 
-    // Never track the private admin area.
+    // Never record visits to the private admin area.
     if (pathname.startsWith("/admin")) {
       return;
     }
 
-    // Prevent duplicate tracking caused by React development mode.
-    if (lastTrackedPath.current === pathname) {
+    /*
+     * Prevent the same pathname from being inserted twice
+     * during the same component lifecycle.
+     */
+    if (trackedPathRef.current === pathname) {
       return;
     }
 
-    lastTrackedPath.current = pathname;
+    trackedPathRef.current = pathname;
 
-    async function trackPageView() {
+    async function recordVisit() {
       try {
         const sessionId = getSessionId();
+
+        /*
+         * Give Next.js/browser time to update the document title.
+         */
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, 50)
+        );
+
+        const pageTitle =
+          document.title || pathname;
+
+        const referrer = getReferrer();
 
         const { error } = await supabase
           .from("visitor_pageviews")
@@ -99,9 +149,9 @@ export default function VisitorTracker() {
 
             path: pathname,
 
-            page_title: document.title || null,
+            page_title: pageTitle,
 
-            referrer: document.referrer || null,
+            referrer,
 
             device_type: getDeviceType(),
 
@@ -117,30 +167,39 @@ export default function VisitorTracker() {
 
             viewport_height: window.innerHeight,
 
-            language: navigator.language || null,
+            language:
+              navigator.language || null,
 
             timezone:
-              Intl.DateTimeFormat().resolvedOptions().timeZone ||
-              null,
+              Intl.DateTimeFormat()
+                .resolvedOptions()
+                .timeZone || null,
 
-            connection_type: getConnectionType(),
+            connection_type:
+              getConnectionType(),
           });
 
         if (error) {
           console.error(
-            "Visitor analytics error:",
+            "Kollaam analytics error:",
             error.message
           );
+
+          return;
         }
+
+        console.log(
+          `[Kollaam Analytics] ${pathname}`
+        );
       } catch (error) {
         console.error(
-          "Visitor analytics failed:",
+          "Kollaam visitor tracking failed:",
           error
         );
       }
     }
 
-    trackPageView();
+    recordVisit();
   }, [pathname]);
 
   return null;
