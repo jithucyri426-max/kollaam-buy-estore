@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, Monitor, Users } from "lucide-react";
+import { BarChart3, Monitor, UserRound, Users } from "lucide-react";
 
 export default function AnalyticsLayout({
   children,
@@ -30,6 +30,13 @@ export default function AnalyticsLayout({
           >
             <Users size={17} />
             Customers
+          </Link>
+          <Link
+            href="/admin/analytics/profiles"
+            className="inline-flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-200"
+          >
+            <UserRound size={17} />
+            Profiles
           </Link>
         </div>
       </nav>
