@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { ArrowLeft, Minus, Plus, ShoppingCart, Trash2, MessageCircle } from "lucide-react";
 import { useCustomerCart } from "@/app/components/customer-cart";
+
+const WHATSAPP_NUMBER = "918078342648";
 
 function formatPrice(value: number) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
@@ -11,6 +13,28 @@ function formatPrice(value: number) {
 
 export default function CartPage() {
   const { items, subtotal, updateQuantity, removeItem, isActiveCustomer } = useCustomerCart();
+
+  const sendWhatsAppEnquiry = () => {
+    if (!items.length) return;
+
+    const lines = items.map(
+      (item, index) => `${index + 1}. ${item.name}\n   Qty: ${item.quantity} × ${formatPrice(item.price)} = ${formatPrice(item.price * item.quantity)}`
+    );
+
+    const message = [
+      "Hello Kollaam Buy e-Store! 👋",
+      "",
+      "I would like to enquire about these products:",
+      "",
+      ...lines,
+      "",
+      `Cart total: ${formatPrice(subtotal)}`,
+      "",
+      "Please confirm availability, delivery details and how I can place the order.",
+    ].join("\n");
+
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <main className="min-h-screen bg-[#f7f1e4] px-4 py-8 text-gray-900 sm:px-6 lg:px-8">
@@ -34,8 +58,8 @@ export default function CartPage() {
           <section className="mt-7 rounded-3xl bg-white p-12 text-center shadow-lg">
             <ShoppingCart className="mx-auto text-gray-300" size={52} />
             <h2 className="mt-4 text-xl font-black">Your cart is empty</h2>
-            <p className="mt-2 text-sm text-gray-500">Add products from the store to start your order.</p>
-            <Link href="/" className="mt-6 inline-flex rounded-xl bg-green-700 px-6 py-3 text-sm font-black text-white">Continue Shopping</Link>
+            <p className="mt-2 text-sm text-gray-500">Add products from the store to start an enquiry.</p>
+            <Link href="/" className="mt-6 inline-flex rounded-xl bg-green-700 px-6 py-3 font-black text-white">Continue Shopping</Link>
           </section>
         ) : (
           <div className="mt-7 grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -60,12 +84,14 @@ export default function CartPage() {
             </section>
 
             <aside className="h-fit rounded-3xl bg-white p-6 shadow-lg">
-              <h2 className="text-lg font-black">Order Summary</h2>
+              <h2 className="text-lg font-black">Enquiry Summary</h2>
               <div className="mt-5 flex justify-between text-sm text-gray-600"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
               <div className="my-5 h-px bg-gray-100" />
               <div className="flex justify-between text-lg font-black"><span>Total</span><span className="text-green-800">{formatPrice(subtotal)}</span></div>
-              <Link href="/checkout" className="mt-6 flex w-full items-center justify-center rounded-xl bg-green-700 px-5 py-3.5 text-sm font-black text-white transition hover:bg-green-800">Proceed to Checkout</Link>
-              <p className="mt-3 text-center text-xs text-gray-400">Enter your delivery details to continue with your order.</p>
+              <button onClick={sendWhatsAppEnquiry} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 px-5 py-3.5 text-sm font-black text-white transition hover:bg-green-800">
+                <MessageCircle size={19} /> Enquire on WhatsApp
+              </button>
+              <p className="mt-3 text-center text-xs leading-5 text-gray-500">Your cart will be sent to WhatsApp as a product enquiry. Online checkout will be added in the future.</p>
             </aside>
           </div>
         )}
