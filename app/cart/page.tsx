@@ -64,8 +64,8 @@ export default function CartPage() {
               <div className="mt-5 flex justify-between text-sm text-gray-600"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
               <div className="my-5 h-px bg-gray-100" />
               <div className="flex justify-between text-lg font-black"><span>Total</span><span className="text-green-800">{formatPrice(subtotal)}</span></div>
-              <button disabled className="mt-6 w-full rounded-xl bg-green-700 px-5 py-3.5 text-sm font-black text-white opacity-60">Checkout coming next</button>
-              <p className="mt-3 text-center text-xs text-gray-400">We will connect this cart to order placement next.</p>
+              <Link href="/checkout" className="mt-6 flex w-full items-center justify-center rounded-xl bg-green-700 px-5 py-3.5 text-sm font-black text-white transition hover:bg-green-800">Proceed to Checkout</Link>
+              <p className="mt-3 text-center text-xs text-gray-400">Enter your delivery details to continue with your order.</p>
             </aside>
           </div>
         )}
