@@ -2,10 +2,13 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, MessageCircle, UserRound } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 const SESSION_KEY = "kollaam_analytics_session";
+const ACTIVE_PROFILE_KEY = "kollaam_customer_profile_active";
+const PROFILE_SESSION_KEY = "kollaam_customer_profile_session";
 const SESSION_TIMEOUT = 30 * 60 * 1000;
 
 function getSessionId() {
@@ -25,6 +28,7 @@ function getSessionId() {
 }
 
 export default function CustomerProfilePage() {
+  const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -71,7 +75,11 @@ export default function CustomerProfilePage() {
       return;
     }
 
+    localStorage.setItem(ACTIVE_PROFILE_KEY, "true");
+    localStorage.setItem(PROFILE_SESSION_KEY, sessionId);
     setSaved(true);
+
+    router.push("/");
   }
 
   return (
