@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Download, Mail, Phone, RefreshCw, UserRound } from "lucide-react";
+import { Download, Eye, Mail, Phone, RefreshCw, UserRound } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type CustomerProfile = {
@@ -14,6 +14,19 @@ type CustomerProfile = {
   marketing_consent_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type Activity = {
+  pageViews: number;
+  visits: number;
+  lastSeen: string | null;
+  topPath: string | null;
+};
+
+type PageView = {
+  session_id: string | null;
+  path: string | null;
+  created_at: string;
 };
 
 function formatDate(value: string | null) {
@@ -29,8 +42,70 @@ function escapeCsv(value: string | number | boolean | null | undefined) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
+function buildActivity(rows: PageView[]) {
+  const map = new Map<string, Activity>();
+
+  const bySession = new Map<string, PageView[]>();
+  for (const row of rows) {
+    if (!row.session_id) continue;
+    const list = bySession.get(row.session_id) || [];
+    list.push(row);
+    bySession.set(row.session_id, list);
+  }
+
+  for (const [sessionId, sessionRows] of bySession) {
+    const pathCounts = new Map<string, number>();
+    const visitBuckets = new Set<string>();
+
+    for (const row of sessionRows) {
+      if (row.path) {
+        pathCounts.set(row.path, (pathCounts.get(row.path) || 0) + 1);
+      }
+
+      const timestamp = new Date(row.created_at).getTime();
+      if (!Number.isNaN(timestamp)) {
+        // A new visit is counted when activity is separated by more than 30 minutes.
+        // Rows are sorted below so the calculation is deterministic.
+        visitBuckets.add(String(timestamp));
+      }
+    }
+
+    const sortedRows = [...sessionRows].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+    let visits = sortedRows.length > 0 ? 1 : 0;
+    let previous = sortedRows.length > 0 ? new Date(sortedRows[0].created_at).getTime() : 0;
+
+    for (const row of sortedRows.slice(1)) {
+      const current = new Date(row.created_at).getTime();
+      if (current - previous > 30 * 60 * 1000) visits += 1;
+      previous = current;
+    }
+
+    let topPath: string | null = null;
+    let topCount = 0;
+    for (const [path, count] of pathCounts) {
+      if (count > topCount) {
+        topPath = path;
+        topCount = count;
+      }
+    }
+
+    map.set(sessionId, {
+      pageViews: sortedRows.length,
+      visits,
+      lastSeen: sortedRows.length ? sortedRows[sortedRows.length - 1].created_at : null,
+      topPath,
+    });
+  }
+
+  return map;
+}
+
 export default function CustomerProfilesPage() {
   const [profiles, setProfiles] = useState<CustomerProfile[]>([]);
+  const [activity, setActivity] = useState<Map<string, Activity>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -67,11 +142,33 @@ export default function CustomerProfilesPage() {
         "Customer profiles are not available yet. Run supabase/customer_profiles.sql in your Supabase SQL Editor, then refresh."
       );
       setProfiles([]);
+      setActivity(new Map());
       setLoading(false);
       return;
     }
 
-    setProfiles((data || []) as CustomerProfile[]);
+    const profileRows = (data || []) as CustomerProfile[];
+    setProfiles(profileRows);
+
+    const sessionIds = profileRows.map((profile) => profile.session_id).filter(Boolean);
+
+    if (sessionIds.length > 0) {
+      const { data: activityRows, error: activityError } = await supabase
+        .from("visitor_pageviews")
+        .select("session_id,path,created_at")
+        .in("session_id", sessionIds)
+        .order("created_at", { ascending: true });
+
+      if (activityError) {
+        console.warn("Customer activity load failed:", activityError.message);
+        setActivity(new Map());
+      } else {
+        setActivity(buildActivity((activityRows || []) as PageView[]));
+      }
+    } else {
+      setActivity(new Map());
+    }
+
     setLoading(false);
   }
 
@@ -84,6 +181,11 @@ export default function CustomerProfilesPage() {
     [profiles]
   );
 
+  const activeProfileCount = useMemo(
+    () => profiles.filter((profile) => (activity.get(profile.session_id)?.pageViews || 0) > 0).length,
+    [profiles, activity]
+  );
+
   function exportCsv() {
     const header = [
       "Name",
@@ -93,19 +195,30 @@ export default function CustomerProfilesPage() {
       "Marketing Consent At",
       "Profile Created",
       "Profile Updated",
+      "Page Views",
+      "Visits",
+      "Last Seen",
+      "Top Page",
       "Analytics Session",
     ];
 
-    const rows = profiles.map((profile) => [
-      profile.name,
-      profile.email,
-      profile.phone,
-      profile.marketing_consent ? "Yes" : "No",
-      profile.marketing_consent_at,
-      profile.created_at,
-      profile.updated_at,
-      profile.session_id,
-    ]);
+    const rows = profiles.map((profile) => {
+      const stats = activity.get(profile.session_id);
+      return [
+        profile.name,
+        profile.email,
+        profile.phone,
+        profile.marketing_consent ? "Yes" : "No",
+        profile.marketing_consent_at,
+        profile.created_at,
+        profile.updated_at,
+        stats?.pageViews || 0,
+        stats?.visits || 0,
+        stats?.lastSeen || null,
+        stats?.topPath || null,
+        profile.session_id,
+      ];
+    });
 
     const csv = [
       header.map(escapeCsv).join(","),
@@ -125,7 +238,7 @@ export default function CustomerProfilesPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1500px]">
+      <div className="mx-auto max-w-[1600px]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-bold uppercase tracking-wider text-green-700">
@@ -135,7 +248,7 @@ export default function CustomerProfilesPage() {
               Customer Profiles
             </h1>
             <p className="mt-2 text-sm text-gray-500">
-              Voluntary customer details linked to analytics sessions.
+              Voluntary customer details linked to analytics sessions and browsing activity.
             </p>
           </div>
 
@@ -159,23 +272,21 @@ export default function CustomerProfilesPage() {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-              Profiles
-            </p>
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Profiles</p>
             <p className="mt-2 text-3xl font-black text-gray-950">{profiles.length}</p>
           </div>
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-              Marketing Opt-ins
-            </p>
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Marketing Opt-ins</p>
             <p className="mt-2 text-3xl font-black text-green-700">{marketingCount}</p>
           </div>
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-              Available Contact Details
-            </p>
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">With Analytics Activity</p>
+            <p className="mt-2 text-3xl font-black text-gray-950">{activeProfileCount}</p>
+          </div>
+          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Available Contact Details</p>
             <p className="mt-2 text-3xl font-black text-gray-950">
               {profiles.filter((profile) => profile.phone || profile.email).length}
             </p>
@@ -196,70 +307,87 @@ export default function CustomerProfilesPage() {
                   <th className="px-5 py-4 font-bold text-gray-600">Customer</th>
                   <th className="px-5 py-4 font-bold text-gray-600">Contact</th>
                   <th className="px-5 py-4 font-bold text-gray-600">Marketing</th>
+                  <th className="px-5 py-4 font-bold text-gray-600">Engagement</th>
                   <th className="px-5 py-4 font-bold text-gray-600">Profile</th>
                   <th className="px-5 py-4 font-bold text-gray-600">Analytics Session</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {profiles.map((profile) => (
-                  <tr key={profile.id} className="align-top hover:bg-gray-50/70">
-                    <td className="px-5 py-5">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
-                          <UserRound size={18} />
+                {profiles.map((profile) => {
+                  const stats = activity.get(profile.session_id);
+
+                  return (
+                    <tr key={profile.id} className="align-top hover:bg-gray-50/70">
+                      <td className="px-5 py-5">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
+                            <UserRound size={18} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-900">{profile.name || "Unnamed customer"}</p>
+                            <p className="mt-1 text-xs text-gray-400">ID: {profile.id.slice(0, 8)}…</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-gray-900">{profile.name || "Unnamed customer"}</p>
-                          <p className="mt-1 text-xs text-gray-400">ID: {profile.id.slice(0, 8)}…</p>
+                      </td>
+                      <td className="px-5 py-5">
+                        <div className="space-y-2">
+                          {profile.phone ? (
+                            <p className="flex items-center gap-2 text-gray-700">
+                              <Phone size={14} /> {profile.phone}
+                            </p>
+                          ) : null}
+                          {profile.email ? (
+                            <p className="flex items-center gap-2 text-gray-700">
+                              <Mail size={14} /> {profile.email}
+                            </p>
+                          ) : null}
+                          {!profile.phone && !profile.email ? (
+                            <span className="text-gray-400">No contact supplied</span>
+                          ) : null}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-5">
-                      <div className="space-y-2">
-                        {profile.phone ? (
-                          <p className="flex items-center gap-2 text-gray-700">
-                            <Phone size={14} /> {profile.phone}
+                      </td>
+                      <td className="px-5 py-5">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ${
+                            profile.marketing_consent
+                              ? "bg-green-50 text-green-700"
+                              : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {profile.marketing_consent ? "Opted in" : "No"}
+                        </span>
+                        {profile.marketing_consent_at && (
+                          <p className="mt-2 text-xs text-gray-400">
+                            {formatDate(profile.marketing_consent_at)}
                           </p>
-                        ) : null}
-                        {profile.email ? (
-                          <p className="flex items-center gap-2 text-gray-700">
-                            <Mail size={14} /> {profile.email}
+                        )}
+                      </td>
+                      <td className="px-5 py-5">
+                        <div className="space-y-2 text-xs">
+                          <p className="flex items-center gap-2 font-bold text-gray-700">
+                            <Eye size={14} /> {stats?.pageViews || 0} page views
                           </p>
-                        ) : null}
-                        {!profile.phone && !profile.email ? (
-                          <span className="text-gray-400">No contact supplied</span>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-5 py-5">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-bold ${
-                          profile.marketing_consent
-                            ? "bg-green-50 text-green-700"
-                            : "bg-gray-100 text-gray-500"
-                        }`}
-                      >
-                        {profile.marketing_consent ? "Opted in" : "No"}
-                      </span>
-                      {profile.marketing_consent_at && (
-                        <p className="mt-2 text-xs text-gray-400">
-                          {formatDate(profile.marketing_consent_at)}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-5 py-5 text-xs text-gray-500">
-                      <p>Created: {formatDate(profile.created_at)}</p>
-                      <p className="mt-1">Updated: {formatDate(profile.updated_at)}</p>
-                    </td>
-                    <td className="px-5 py-5 font-mono text-xs text-gray-400">
-                      {profile.session_id}
-                    </td>
-                  </tr>
-                ))}
+                          <p className="text-gray-500">{stats?.visits || 0} visit{stats?.visits === 1 ? "" : "s"}</p>
+                          <p className="max-w-xs truncate text-gray-500" title={stats?.topPath || ""}>
+                            Top page: {stats?.topPath || "—"}
+                          </p>
+                          <p className="text-gray-400">Last seen: {formatDate(stats?.lastSeen || null)}</p>
+                        </div>
+                      </td>
+                      <td className="px-5 py-5 text-xs text-gray-500">
+                        <p>Created: {formatDate(profile.created_at)}</p>
+                        <p className="mt-1">Updated: {formatDate(profile.updated_at)}</p>
+                      </td>
+                      <td className="px-5 py-5 font-mono text-xs text-gray-400">
+                        {profile.session_id}
+                      </td>
+                    </tr>
+                  );
+                })}
 
                 {!loading && profiles.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-16 text-center text-gray-400">
+                    <td colSpan={6} className="px-5 py-16 text-center text-gray-400">
                       <UserRound size={36} className="mx-auto text-gray-300" />
                       <p className="mt-3 font-bold text-gray-600">No customer profiles yet</p>
                       <p className="mt-1 text-xs">
@@ -274,7 +402,7 @@ export default function CustomerProfilesPage() {
         </div>
 
         <p className="mt-5 text-xs leading-5 text-gray-400">
-          Privacy: customers choose whether to provide these details. An analytics session ID is not proof of identity. Only use marketing opt-ins for communications the customer has consented to receive.
+          Privacy: customers choose whether to provide these details. An analytics session ID is not proof of identity. Engagement is calculated from page-view activity associated with that browser session. Only use marketing opt-ins for communications the customer has consented to receive.
         </p>
       </div>
     </main>
